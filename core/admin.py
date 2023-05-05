@@ -8,16 +8,22 @@ class usuarioAdmin(admin.ModelAdmin):
     list_display=['username','email','empresa_nome']
 
 class empresaAdmin(admin.ModelAdmin):
-    list_display = ['empresa_nome','empresa_cnpj','empresa_email']
+    list_display = ['empresa_nome','empresa_cnpj','empresa_email','empresa_saldo_creditos']
 
 class creditoAdmin(admin.ModelAdmin):
     def empresa_nome(self,obj):
         return obj.empresa_compradora.empresa_nome
     list_display = ['empresa_nome','credito_valor_pago','credito_dt_aquisicao','credito_dt_vencimento','credito_finalizado']
 
+class creditoUsadoAdmin(admin.ModelAdmin):
+    def empresa_debitada(self,obj):
+        return obj.empresa_debitada.empresa_nome
+    def empresa_creditada(self,obj):
+        return obj.empresa_creditada.empresa_nome
+    list_display = ['empresa_debitada','empresa_creditada','credito','credito_usado_dt','credito_usado_parcial']
 
 
 admin.site.register(usuario,usuarioAdmin)
 admin.site.register(empresa,empresaAdmin)
 admin.site.register(credito,creditoAdmin)
-admin.site.register(credito_usado)
+admin.site.register(credito_usado,creditoUsadoAdmin)
