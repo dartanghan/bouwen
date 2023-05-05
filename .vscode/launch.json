@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "BOUWEN - HML",
+            "python":"${workspaceFolder}/venv/bin/python",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "cwd": "${workspaceFolder}/",
+            "console": "integratedTerminal",
+            "args": ["runserver","0.0.0.0:8080"],
+            "env": {
+                "DEBUG": "True",
+            }
+        }
+    ]
+}
