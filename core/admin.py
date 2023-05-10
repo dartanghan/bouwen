@@ -28,7 +28,7 @@ class creditoUsadoAdmin(admin.ModelAdmin):
         return obj.empresa_debitada.empresa_nome
     def empresa_creditada(self,obj):
         return obj.empresa_creditada.empresa_nome
-    list_display = ['empresa_creditada','credito','credito_usado_dt','credito_usado_parcial']
+    list_display = ['credito','credito_usado_dt','credito_usado_parcial']
 
 class workboxAdmin(admin.ModelAdmin):
     list_display = ['w_inicio','w_fim','w_titulo','w_creditos','w_usuario']

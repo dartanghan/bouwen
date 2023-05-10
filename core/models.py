@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from datetime import datetime,timedelta
 from django.db.models import Max
+import math
 
 # Create your models here.
 class empresa(models.Model):
@@ -22,7 +23,7 @@ class empresa(models.Model):
     
     def creditos_get(self, creditos_ativos:bool):
         """ Retorna a lista de credito disponiveis """
-        creditos = credito.objects.filter(empresa_compradora=self)
+        creditos = credito.objects.filter(empresa_compradora=self).filter(credito_dt_vencimento__gt=datetime.now())
         if creditos_ativos is not None and creditos_ativos == True:
             creditos = creditos.filter(credito_finalizado=False)
         elif creditos_ativos is not None and creditos_ativos == False:
@@ -35,29 +36,37 @@ class empresa(models.Model):
         :param forcar_reprocessamento:bool informa se temos que reativar os creditos e recalcular tudo
         """
         if forcar_reprocessamento: ## reativar todos os creditos
-            credito.objects.filter(empresa_compradora=self).update(credito_finalizado=False,credito_parcialmente_finalizado=False)
-            credito_usado.objects.all().delete() #remove consumos
+            creditos_usados = credito_usado.objects.filter(credito_usado_dt__gte=dt_inicio, credito__empresa_compradora=self)
+            for c_usado in creditos_usados:
+                c_usado.credito.credito_finalizado=False
+                c_usado.credito.credito_parcialmente_finalizado=False
+                c_usado.credito.save()
+                c_usado.delete() #remove consumos
         dt_processamento = dt_inicio
-        while dt_processamento < datetime.now():
-            # works feitos na hora do processamento
-            trabalhos_executados = workbox.objects.filter(w_empresa=self,w_creditos__gte=1,w_inicio__gte=dt_processamento,w_inicio__lt= dt_processamento + timedelta(hours=1))
-            for trabalho in trabalhos_executados:
-                creditos_para_consumir = trabalho.w_creditos
-                while creditos_para_consumir > 0: # se o trabalho exige 2 creditos por hora, por ex.
-                    creus = credito_usado(
-                        empresa_creditada=trabalho.w_usuario.empresa,
-                        credito=self.creditos_get(True)[0],
-                        credito_usado_dt = dt_processamento,
-                        credito_usado_parcial = False # TODO ainda nao calcula parcial
-                    )
-                    creus.save()
-                    creditos_para_consumir = creditos_para_consumir - 1
-            # vamos para proxima hora
-            dt_processamento = dt_processamento + timedelta(hours=1)
-            
-
-            
         
+        trabalhos_executados = workbox.objects.filter(w_empresa=self,w_creditos__gte=1,w_inicio__gte=dt_processamento,w_inicio__lt=datetime.now())
+        total_creditos_consumo = 0
+        for trabalho in trabalhos_executados:
+            print(f' ... Processando {trabalho.w_creditos} créditos..')
+            creditos_para_consumir = math.ceil( ((trabalho.w_fim-trabalho.w_inicio).total_seconds() / 60 ) / 61 )
+            print(f' ... Processando {creditos_para_consumir} créditos..')
+            creditos_para_consumir = creditos_para_consumir*trabalho.w_creditos # potencia do tipo de trabalho
+            print(f' ... Processando {creditos_para_consumir} créditos..')
+            total_creditos_consumo = total_creditos_consumo + creditos_para_consumir
+            creditos_para_consumir = 0 
+        
+        print(f' ... Processando o consumo de {total_creditos_consumo} créditos')
+        while total_creditos_consumo > 0 and self.creditos_get(True): 
+            creus = credito_usado(
+                credito=self.creditos_get(True)[0],
+                credito_usado_dt = dt_processamento,
+                credito_usado_parcial = total_creditos_consumo < 1 and total_creditos_consumo > 0
+            )
+            creus.save()
+            total_creditos_consumo = total_creditos_consumo - 1
+        print(f' ... Pendencia final de {total_creditos_consumo} créditos') 
+        self.empresa_saldo_creditos = len(self.creditos_get(True)) - total_creditos_consumo*-1
+        self.save()
 
 
 class usuario(User):
@@ -78,7 +87,6 @@ class credito(models.Model):
     credito_dt_vencimento = models.DateTimeField(blank=True,null=True)
 
 class credito_usado(models.Model):
-    empresa_creditada = models.ForeignKey('empresa',related_name='empresa_creditada',on_delete=models.CASCADE) #empresa que trabalhou
     credito = models.ForeignKey('credito',on_delete=models.CASCADE) #credito que sera consumido
     credito_usado_dt = models.DateTimeField(auto_now=True)
     credito_usado_parcial = models.BooleanField(default=False) #indica se metade do credito foi consumido
@@ -113,7 +121,7 @@ class workbox(models.Model):
     w_fim = models.DateTimeField(default=datetime.now)
     w_titulo = models.CharField(max_length=200)
     w_descricao = models.TextField()
-    w_creditos = models.IntegerField(default=1)
+    w_creditos = models.FloatField(default=1)
     w_empresa = models.ForeignKey(empresa,on_delete=models.CASCADE)
     w_usuario = models.ForeignKey(usuario,on_delete=models.CASCADE)
     def __str__(self):
