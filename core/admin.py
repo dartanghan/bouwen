@@ -24,7 +24,7 @@ class creditoAdmin(admin.ModelAdmin):
     list_display = ['empresa_nome','credito_valor_pago','credito_dt_aquisicao','credito_dt_vencimento','credito_finalizado']
 
 class creditoUsadoAdmin(admin.ModelAdmin):
-    list_display = ['credito__empresa','credito__credito_finalizado','credito_usado_dt','credito_usado_parcial']
+    list_display = ['credito_usado_dt','credito_usado_parcial']
 
 class workboxAdmin(admin.ModelAdmin):
     list_display = ['w_inicio','w_fim','w_titulo','w_creditos','w_usuario']
